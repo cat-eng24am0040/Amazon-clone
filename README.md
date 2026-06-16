@@ -38,10 +38,10 @@ A full-stack Amazon-inspired e-commerce web application built to simulate a real
 
 ##  Team Contributions
 
-- Frontend Development
-- Backend API Development
-- Database Management
-- Deployment & Project Integration
+- Frontend Development:Hema BV
+- Backend API Development:Yashwanth SV
+- Database Management:Keerthana JU
+- Deployment & Project Integration:Keerthana JU
 
 ---
 
