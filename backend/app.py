@@ -2,6 +2,14 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import pickle
 
+#Database connection
+from db import users_collection
+from db import products_collection
+from db import cart_collection
+from db import orders_collection
+
+
+
 # Load the trained model
 
 app = FastAPI()
@@ -52,10 +60,10 @@ products = [
 class User(BaseModel):
     name: str
     email: str
-    password: int
+    password: str
 class Login(BaseModel):
     email: str
-    password: int
+    password: str
 
 
 @app.get("/")
@@ -68,33 +76,42 @@ def home():
 @app.post("/register")
 def register(user: User):
 
-    users.append(user.model_dump())
+    users_collection.insert_one(user.model_dump())
 
     return {
         "message": "User Registered Successfully",
         "user": user
     }
 @app.post("/login")
-def login(email: str, password: int):
-    for user in users:
-        if user['email'] == email :
-            if user['password'] == password:
-              return {
+def login(email: str, password: str):
+
+    user = users_collection.find_one({"email": email})
+
+    if user:
+        if user["password"] == password:
+            return {
                 "message": "Login Successful",
                 "user": user
             }
-            return{
-                "message": "Invalid password"
-            }
+
+        return {
+            "message": "Invalid password"
+        }
+
     return {
-        "message": "Invalid email or password"
+        "message": "Invalid email"
     }
 @app.get("/products")
 def get_products():
 
-    return {
-        "products": products
-    }
+    products = list(products_collection.find())
+
+    for product in products:
+        product["_id"] = str(product["_id"])
+
+    return {"products": products}
+
+
 @app.get("/product/{product_id}")
 def get_product(product_id: int):
 
