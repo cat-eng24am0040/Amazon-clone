@@ -1,6 +1,16 @@
+from itertools import product
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 import pickle
+
+#Database connection
+from db import users_collection
+from db import products_collection
+from db import cart_collection
+from db import orders_collection
+
+
 
 # Load the trained model
 
@@ -10,52 +20,13 @@ with open("search_model.pkl", "rb") as f:
     vectorizer, model = pickle.load(f)
 
 
-users = []
-
-products = [
-    {
-        "id": 1,
-        "name": "Apple iPhone 15",
-        "price": 79999,
-        "rating": 4.7
-    },
-    {
-        "id": 2,
-        "name": "Samsung Galaxy S24",
-        "price": 74999,
-        "rating": 4.6
-    },
-    {
-        "id": 3,
-        "name": "OnePlus 12",
-        "price": 59999,
-        "rating": 4.5
-    },
-    {
-    "id": 4,
-    "name": "Apple MacBook Air M3",
-    "price": 114999,
-    "rating": 4.8,
-    "description": "13-inch Laptop"
-    },
-    {
-    "id": 5,
-    "name": "Apple AirPods Pro",
-    "price": 24999,
-    "rating": 4.7,
-    "description": "Wireless Earbuds"
-    }
-  
-]
-
-
 class User(BaseModel):
     name: str
     email: str
-    password: int
+    password: str
 class Login(BaseModel):
     email: str
-    password: int
+    password: str
 
 
 @app.get("/")
@@ -68,43 +39,52 @@ def home():
 @app.post("/register")
 def register(user: User):
 
-    users.append(user.model_dump())
+    users_collection.insert_one(user.model_dump())
 
     return {
         "message": "User Registered Successfully",
         "user": user
     }
+
 @app.post("/login")
-def login(email: str, password: int):
-    for user in users:
-        if user['email'] == email :
-            if user['password'] == password:
-              return {
-                "message": "Login Successful",
-                "user": user
-            }
-            return{
-                "message": "Invalid password"
-            }
+def login(login_data: Login):
+
+    user = users_collection.find_one({
+        "email": login_data.email
+    })
+
+    if not user:
+        return {"message": "Invalid email"}
+
+    if user["password"] != login_data.password:
+        return {"message": "Invalid password"}
+
+    user["_id"] = str(user["_id"])
+
     return {
-        "message": "Invalid email or password"
+        "message": "Login Successful",
+        "user": user
     }
+    
 @app.get("/products")
 def get_products():
 
-    return {
-        "products": products
-    }
+    products = list(products_collection.find())
+
+    for product in products:
+        product["_id"] = str(product["_id"])
+
+    return {"products": products}
+
+
 @app.get("/product/{product_id}")
 def get_product(product_id: int):
 
-    for product in products:
+    product = products_collection.find_one({"id": product_id})
 
-        if product["id"] == product_id:
-
-            return {
-                "product": product
-            }
+    if product:
+        product["_id"] = str(product["_id"])
+        return {"product": product}
 
     return {
         "message": "Product Not Found"
@@ -114,16 +94,19 @@ def search_products(q: str):
 
     results = []
 
-    for product in products:
+    for product in products_collection.find():
+
+        product["_id"] = str(product["_id"])
 
         if q.lower() in product["name"].lower():
-
             results.append(product)
 
     return {
         "query": q,
         "results": results
     }
+
+
 @app.get("/ai-search")
 def ai_search(q: str):
 
@@ -133,14 +116,15 @@ def ai_search(q: str):
 
     product_id = int(prediction[0])
 
-    for product in products:
+    product = products_collection.find_one({"id": product_id})
 
-        if product["id"] == product_id:
+    if product:
+        product["_id"] = str(product["_id"])
 
-            return {
-                "query": q,
-                "predicted_product": product
-            }
+        return {
+            "query": q,
+            "predicted_product": product
+        }
 
     return {
         "message": "No Product Found"
